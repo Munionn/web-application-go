@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"webapplication/internal/database"
+	"webapplication/internal/models"
 	"webapplication/internal/server"
 )
 
@@ -39,6 +41,15 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 func main() {
 
+	dbService := database.New()
+
+	db := dbService.GetDB()
+	err := db.AutoMigrate(&models.User{}, &models.Token{})
+	if err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+	log.Println("Database migrations completed successfully")
+
 	server := server.NewServer()
 
 	// Create a done channel to signal when the shutdown is complete
@@ -47,7 +58,7 @@ func main() {
 	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(server, done)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(fmt.Sprintf("http server error: %s", err))
 	}

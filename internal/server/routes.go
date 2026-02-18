@@ -1,8 +1,6 @@
 package server
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -15,49 +13,16 @@ func (s *Server) RegisterRoutes() http.Handler {
 	corsWrapper := s.corsMiddleware(r)
 
 	r.HandlerFunc(http.MethodGet, "/", s.HelloWorldHandler)
-
 	r.HandlerFunc(http.MethodGet, "/health", s.healthHandler)
 
+	// Example GORM routes (uncomment to use)
+	r.HandlerFunc(http.MethodGet, "/users", s.getUsersHandler)
+	r.HandlerFunc(http.MethodGet, "/users/:id", s.getUserHandler)
+	r.HandlerFunc(http.MethodPost, "/users", s.createUserHandler)
+	r.HandlerFunc(http.MethodPut, "/users/:id", s.updateUserHandler)
+	r.HandlerFunc(http.MethodDelete, "/users/:id", s.deleteUserHandler)
+
+	r.HandlerFunc(http.MethodPost, "/signup", s.SignUpHandler)
+	r.HandlerFunc(http.MethodPost, "/signin", s.SignInHandler)
 	return corsWrapper
-}
-
-// CORS middleware
-func (s *Server) corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*") // Use "*" for all origins, or replace with specific origins
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-CSRF-Token")
-		w.Header().Set("Access-Control-Allow-Credentials", "false") // Set to "true" if credentials are needed
-
-		// Handle preflight OPTIONS requests
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("error handling JSON marshal. Err: %v", err)
-	}
-
-	_, _ = w.Write(jsonResp)
-}
-
-func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, err := json.Marshal(s.db.Health())
-
-	if err != nil {
-		log.Fatalf("error handling JSON marshal. Err: %v", err)
-	}
-
-	_, _ = w.Write(jsonResp)
 }

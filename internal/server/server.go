@@ -13,17 +13,17 @@ import (
 )
 
 type Server struct {
-	port int
-
-	db database.Service
+	port      int
+	jwtSecret string
+	db        database.Service
 }
 
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	NewServer := &Server{
-		port: port,
-
-		db: database.New(),
+		port:      port,
+		jwtSecret: os.Getenv("JWT_SECRET"),
+		db:        database.New(),
 	}
 
 	// Declare Server config

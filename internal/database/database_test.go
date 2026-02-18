@@ -36,6 +36,7 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 	database = dbName
 	password = dbPwd
 	username = dbUser
+	schema = "public"
 
 	dbHost, err := dbContainer.Host(context.Background())
 	if err != nil {
@@ -96,5 +97,14 @@ func TestClose(t *testing.T) {
 
 	if srv.Close() != nil {
 		t.Fatalf("expected Close() to return nil")
+	}
+}
+
+func TestGetDB(t *testing.T) {
+	srv := New()
+
+	db := srv.GetDB()
+	if db == nil {
+		t.Fatalf("expected GetDB() to return a non-nil *gorm.DB")
 	}
 }

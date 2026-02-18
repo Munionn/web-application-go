@@ -37,10 +37,11 @@ DB Integrations Test:
 make itest
 ```
 
-Live reload the application:
+**Live reload** (like nodemon for Node.js – rebuilds on file changes):
 ```bash
 make watch
 ```
+Uses [Air](https://github.com/air-verse/air). On first run, Air is installed via `go install` if needed. Edit any `.go` file to trigger a rebuild and restart.
 
 Run the test suite:
 ```bash
