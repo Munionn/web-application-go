@@ -62,3 +62,9 @@ func (s *Server) jwtMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+func (s *Server) withAuth(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.jwtMiddleware(http.HandlerFunc(handler)).ServeHTTP(w, r)
+	}
+}

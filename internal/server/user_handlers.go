@@ -2,11 +2,12 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
 	"strconv"
 	"webapplication/internal/models"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 func (s *Server) getUsersHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,13 +64,23 @@ func (s *Server) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
+	go func() {
+		account := models.Account{
+			Name:  "Default Account",
+			Users: []*models.User{&user},
+		}
+		if err := s.db.GetDB().Create(&account).Error; err != nil {
+			log.Printf("Failed to create default account for user %d: %v", user.ID, err)
+		} else {
+			log.Printf("Default account created for user %d", user.ID)
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(user)
 }
 
-// updateUserHandler updates an existing user
 func (s *Server) updateUserHandler(w http.ResponseWriter, r *http.Request) {
 	params := httprouter.ParamsFromContext(r.Context())
 	id, err := strconv.ParseUint(params.ByName("id"), 10, 32)
