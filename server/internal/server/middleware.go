@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"webapplication/internal/types"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -28,10 +30,6 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-type ContextKey string
-
-const UserContextKey ContextKey = "user"
-
 func (s *Server) jwtMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -44,7 +42,7 @@ func (s *Server) jwtMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
 			return
 		}
-		claims := &Claims{}
+		claims := &types.Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
@@ -58,7 +56,7 @@ func (s *Server) jwtMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Add user claims to context
-		ctx := context.WithValue(r.Context(), UserContextKey, claims)
+		ctx := context.WithValue(r.Context(), types.UserContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

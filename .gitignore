@@ -32,3 +32,11 @@ main
 # OS X generated file
 .DS_Store
 
+# Next.js / frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*.local
+frontend/npm-debug.log*
+frontend/.turbo
+

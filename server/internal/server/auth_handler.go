@@ -10,34 +10,17 @@ import (
 	"time"
 	"webapplication/auth"
 	"webapplication/internal/models"
+	"webapplication/internal/types"
 
 	"github.com/golang-jwt/jwt/v5"
 )
-
-type AuthRequest struct {
-	Login          string `json:"login"`
-	HashedPassword string `json:"password"`
-}
-
-type SignInResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-	UserID    uint   `json:"user_id"`
-	Login     string `json:"login"`
-}
-
-type Claims struct {
-	UserID uint   `json:"user_id"`
-	Login  string `json:"login"`
-	jwt.RegisteredClaims
-}
 
 var JWT_SECRET = os.Getenv("JWT_SECRET_KEY")
 
 func generateToken(userID uint, login string) (string, int64, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 
-	claims := &Claims{
+	claims := &types.Claims{
 		UserID: userID,
 		Login:  login,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -88,7 +71,7 @@ func (s *Server) SignInHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var req AuthRequest
+	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -118,7 +101,7 @@ func (s *Server) SignInHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.saveRefreshTokenAsync(user.ID, refreshToken)
-	response := SignInResponse{
+	response := types.SignInResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt,
 		UserID:    user.ID,
@@ -135,7 +118,7 @@ func (s *Server) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	var req AuthRequest
+	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -150,6 +133,12 @@ func (s *Server) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to process password", http.StatusInternalServerError)
 		return
 	}
+	var existing models.User
+	if err := s.db.GetDB().Where("login = ?", req.Login).First(&existing).Error; err == nil {
+		http.Error(w, "Login already exists", http.StatusConflict)
+		return
+	}
+
 	user := models.User{
 		Login:        req.Login,
 		HashPassword: hashedPassword,
@@ -158,24 +147,38 @@ func (s *Server) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
+
+	defaultAccount := models.Account{
+		Name:         "Default Account",
+		BaseCurrence: "USD",
+		Balance:      0,
+		Users:        []*models.User{&user},
+	}
+	if err := s.db.GetDB().Create(&defaultAccount).Error; err != nil {
+		log.Printf("Failed to create default account for user %d: %v", user.ID, err)
+	}
+
 	refreshToken, err := generateRefreshToken()
 	if err != nil {
 		http.Error(w, "Failed to generate refresh token", http.StatusInternalServerError)
 		return
 	}
 	s.saveRefreshTokenAsync(user.ID, refreshToken)
+
+	tokenString, expiresAt, err := generateToken(user.ID, user.Login)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "User created successfully",
-		"user_id": user.ID,
-		"login":   user.Login,
+	json.NewEncoder(w).Encode(types.SignInResponse{
+		Token:     tokenString,
+		ExpiresAt: expiresAt,
+		UserID:    user.ID,
+		Login:     user.Login,
 	})
-}
-
-// RefreshTokenRequest represents the refresh token request payload
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
 }
 
 // RefreshTokenHandler handles refresh token requests and issues new access tokens
@@ -186,7 +189,7 @@ func (s *Server) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var req RefreshTokenRequest
+	var req types.RefreshTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -221,16 +224,14 @@ func (s *Server) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Optional: Generate new refresh token and replace the old one
-	// newRefreshToken, err := generateRefreshToken()
-	// if err != nil {
-	//     http.Error(w, "Failed to generate refresh token", http.StatusInternalServerError)
-	//     return
-	// }
-	// Update the token in database
-	// s.db.GetDB().Model(&token).Update("refresh_token", newRefreshToken)
+	newRefreshToken, err := generateRefreshToken()
+	if err != nil {
+		http.Error(w, "Failed to generate refresh token", http.StatusInternalServerError)
+		return
+	}
+	s.db.GetDB().Model(&token).Update("refresh_token", newRefreshToken)
 
-	response := SignInResponse{
+	response := types.SignInResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt,
 		UserID:    user.ID,

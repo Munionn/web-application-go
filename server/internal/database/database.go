@@ -31,24 +31,39 @@ type Service interface {
 }
 
 type service struct {
-	db *gorm.DB
+	db     *gorm.DB
+	dbName string
 }
 
 var (
-	database   = os.Getenv("BLUEPRINT_DB_DATABASE")
-	password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
-	username   = os.Getenv("BLUEPRINT_DB_USERNAME")
-	port       = os.Getenv("BLUEPRINT_DB_PORT")
-	host       = os.Getenv("BLUEPRINT_DB_HOST")
-	schema     = os.Getenv("BLUEPRINT_DB_SCHEMA")
 	dbInstance *service
 )
+
+func getEnv(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
 
 func New() Service {
 	// Reuse Connection
 	if dbInstance != nil {
 		return dbInstance
 	}
+
+	// Required: no defaults
+	database := os.Getenv("BLUEPRINT_DB_DATABASE")
+	username := os.Getenv("BLUEPRINT_DB_USERNAME")
+	password := os.Getenv("BLUEPRINT_DB_PASSWORD")
+	if database == "" || username == "" || password == "" {
+		log.Fatal("Missing required DB env vars. Set BLUEPRINT_DB_DATABASE, BLUEPRINT_DB_USERNAME, BLUEPRINT_DB_PASSWORD (e.g. in server/.env)")
+	}
+
+	// Optional: sensible defaults
+	host := getEnv("BLUEPRINT_DB_HOST", "localhost")
+	port := getEnv("BLUEPRINT_DB_PORT", "5432")
+	schema := getEnv("BLUEPRINT_DB_SCHEMA", "public")
 
 	// Build DSN (Data Source Name) for GORM
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC search_path=%s",
@@ -74,7 +89,8 @@ func New() Service {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	dbInstance = &service{
-		db: db,
+		db:     db,
+		dbName: database,
 	}
 	return dbInstance
 }
@@ -142,7 +158,7 @@ func (s *service) Health() map[string]string {
 // If the connection is successfully closed, it returns nil.
 // If an error occurs while closing the connection, it returns the error.
 func (s *service) Close() error {
-	log.Printf("Disconnected from database: %s", database)
+	log.Printf("Disconnected from database: %s", s.dbName)
 	sqlDB, err := s.db.DB()
 	if err != nil {
 		return err

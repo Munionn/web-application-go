@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"bytes"
-
 	"golang.org/x/crypto/bcrypt"
 )
 

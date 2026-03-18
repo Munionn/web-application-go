@@ -9,7 +9,6 @@ type User struct {
 	gorm.Model
 	Login        string     `gorm:"unique;not null"`
 	HashPassword string     `gorm:"not null"`
-	BaseCurrence string     `gorm:"not null"`
 	Tokens       []Token    `gorm:"foreignKey:UserID"`
 	Accounts     []*Account `gorm:"many2many:user_accounts;"`
 }

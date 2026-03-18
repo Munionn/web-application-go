@@ -1,54 +1,49 @@
-# Project webapplication
+# Web Application
 
-One Paragraph of project description goes here
+Monorepo: **Go API** (backend) in `server/` and **Next.js** (frontend) in `frontend/`.
 
-## Getting Started
+## Structure
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
-## MakeFile
-
-Run build make command with tests
-```bash
-make all
+```
+webapplication/
+├── server/          # Go backend (API, DB, auth)
+│   ├── cmd/
+│   ├── internal/
+│   ├── auth/
+│   ├── Makefile
+│   ├── docker-compose.yml
+│   └── go.mod
+├── frontend/        # Next.js 15 (TypeScript, Tailwind)
+│   ├── src/app/
+│   └── package.json
+└── README.md
 ```
 
-Build the application
+## Quick start
+
+### 1. Backend (API)
+
 ```bash
-make build
+cd server
+cp .env.example .env   # if you have one; set PORT, DB vars, JWT_SECRET_KEY
+make docker-run        # start PostgreSQL
+make run               # start API on http://localhost:8080
 ```
 
-Run the application
+### 2. Frontend
+
 ```bash
-make run
-```
-Create DB container
-```bash
-make docker-run
+cd frontend
+npm install
+npm run dev            # http://localhost:3000
 ```
 
-Shutdown DB Container
-```bash
-make docker-down
-```
+The frontend can call the API at `http://localhost:8080` or use the dev proxy at `/api/*` (see `frontend/next.config.ts`).
 
-DB Integrations Test:
-```bash
-make itest
-```
+## Backend (server/)
 
-**Live reload** (like nodemon for Node.js – rebuilds on file changes):
-```bash
-make watch
-```
-Uses [Air](https://github.com/air-verse/air). On first run, Air is installed via `go install` if needed. Edit any `.go` file to trigger a rebuild and restart.
+See **server/README.md** for Makefile targets, DB, and live reload.
 
-Run the test suite:
-```bash
-make test
-```
+## Frontend (frontend/)
 
-Clean up binary from the last build:
-```bash
-make clean
-```
+See **frontend/README.md** for npm scripts and setup.

@@ -2,19 +2,21 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
 	"webapplication/internal/models"
 
 	"github.com/julienschmidt/httprouter"
+	"gorm.io/gorm"
 )
 
 func (s *Server) getUsersHandler(w http.ResponseWriter, r *http.Request) {
 	db := s.db.GetDB()
 	var users []models.User
 
-	result := db.Where("active = ?", true).Find(&users)
+	result := db.Find(&users)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -30,9 +32,10 @@ func (s *Server) getUsersHandler(w http.ResponseWriter, r *http.Request) {
 // getUserHandler retrieves a single user by ID
 func (s *Server) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	params := httprouter.ParamsFromContext(r.Context())
-	id, err := strconv.ParseUint(params.ByName("id"), 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	idStr := params.ByName("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil || id == 0 {
+		http.Error(w, "User ID must be a positive integer", http.StatusBadRequest)
 		return
 	}
 
@@ -41,7 +44,11 @@ func (s *Server) getUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	result := db.First(&user, id)
 	if result.Error != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -83,9 +90,10 @@ func (s *Server) createUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateUserHandler(w http.ResponseWriter, r *http.Request) {
 	params := httprouter.ParamsFromContext(r.Context())
-	id, err := strconv.ParseUint(params.ByName("id"), 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	idStr := params.ByName("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil || id == 0 {
+		http.Error(w, "User ID must be a positive integer", http.StatusBadRequest)
 		return
 	}
 
@@ -93,8 +101,13 @@ func (s *Server) updateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 
 	// First, find the user
-	if err := db.First(&user, id).Error; err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+	result := db.First(&user, id)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -106,7 +119,7 @@ func (s *Server) updateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the user
-	result := db.Model(&user).Updates(updateData)
+	result = db.Model(&user).Updates(updateData)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -119,21 +132,27 @@ func (s *Server) updateUserHandler(w http.ResponseWriter, r *http.Request) {
 // deleteUserHandler soft deletes a user
 func (s *Server) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	params := httprouter.ParamsFromContext(r.Context())
-	id, err := strconv.ParseUint(params.ByName("id"), 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	idStr := params.ByName("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil || id == 0 {
+		http.Error(w, "User ID must be a positive integer", http.StatusBadRequest)
 		return
 	}
 
 	db := s.db.GetDB()
 	var user models.User
 
-	if err := db.First(&user, id).Error; err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+	result := db.First(&user, id)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	result := db.Delete(&user)
+	result = db.Delete(&user)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
